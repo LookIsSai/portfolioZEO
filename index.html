@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ZEOXTAR — Editor de video &amp; Filmmaker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0c0f;
+    --bg-panel:#14171c;
+    --bg-panel-2:#1b1f26;
+    --line: rgba(244,242,236,0.09);
+    --line-strong: rgba(244,242,236,0.16);
+    --text:#f4f2ec;
+    --text-dim:#9aa0a8;
+    --text-dimmer:#666c74;
+    --accent:#ff4f32;
+    --accent-2:#35d6b0;
+    --font-display:'Bebas Neue', sans-serif;
+    --font-mono:'IBM Plex Mono', monospace;
+    --font-body:'Inter', sans-serif;
+  }
+
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--font-body);
+    overflow-x:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+  ::selection{background:var(--accent);color:#0a0c0f;}
+
+  a{color:inherit;text-decoration:none;}
+  img{display:block;max-width:100%;}
+
+  /* film grain overlay */
+  .grain{
+    position:fixed;inset:0;pointer-events:none;z-index:999;
+    opacity:.035;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    mix-blend-mode:overlay;
+  }
+
+  .wrap{max-width:1180px;margin:0 auto;padding:0 32px;}
+
+  .eyebrow{
+    font-family:var(--font-mono);
+    font-size:12.5px;
+    letter-spacing:.12em;
+    text-transform:uppercase;
+    color:var(--accent-2);
+    display:flex;align-items:center;gap:10px;
+    margin-bottom:18px;
+  }
+  .eyebrow::before{
+    content:"";
+    width:7px;height:7px;border-radius:50%;
+    background:var(--accent);
+    box-shadow:0 0 0 3px rgba(255,79,50,.18);
+  }
+
+  /* ---------- TOP TIMELINE NAV ---------- */
+  header.top{
+    position:fixed;top:0;left:0;right:0;z-index:500;
+    background:rgba(10,12,15,.82);
+    backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--line);
+  }
+  .nav-inner{
+    max-width:1180px;margin:0 auto;padding:0 32px;
+    height:64px;display:flex;align-items:center;justify-content:space-between;
+    gap:24px;
+  }
+  .brand{display:flex;align-items:center;gap:10px;}
+  .brand img{height:26px;width:auto;filter:drop-shadow(0 0 10px rgba(255,255,255,.15));}
+  .brand span{font-family:var(--font-mono);font-size:13px;letter-spacing:.12em;color:var(--text-dim);}
+
+  nav.links{display:flex;gap:28px;font-family:var(--font-mono);font-size:12.5px;letter-spacing:.06em;text-transform:uppercase;}
+  nav.links a{color:var(--text-dim);position:relative;padding:4px 0;transition:color .25s;}
+  nav.links a:hover{color:var(--text);}
+
+  .tc-readout{
+    font-family:var(--font-mono);font-size:12px;color:var(--text-dimmer);
+    display:flex;align-items:center;gap:8px;letter-spacing:.04em;
+  }
+  .tc-readout .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:blink 1.6s steps(1) infinite;}
+  @keyframes blink{0%,49%{opacity:1;}50%,100%{opacity:.15;}}
+
+  /* scroll progress = timeline ruler */
+  .ruler{
+    position:fixed;top:64px;left:0;right:0;height:3px;z-index:499;
+    background:var(--bg-panel);
+  }
+  .ruler-fill{
+    height:100%;width:0%;
+    background:linear-gradient(90deg,var(--accent),var(--accent-2));
+  }
+
+  .menu-toggle{display:none;}
+  .skip-link{
+    position:absolute;left:20px;top:-100px;z-index:1000;
+    background:var(--accent);color:#0a0c0f;padding:10px 14px;
+    font-family:var(--font-mono);font-size:12px;
+  }
+  .skip-link:focus{top:12px;}
+  .mobile-menu{display:none;}
+
+  /* ---------- HERO ---------- */
+  .hero{
+    position:relative;
+    min-height:100vh;
+    display:flex;align-items:center;
+    padding-top:64px;
+    background:
+      radial-gradient(ellipse 900px 500px at 78% 20%, rgba(53,214,176,.10), transparent 60%),
+      radial-gradient(ellipse 700px 500px at 15% 85%, rgba(255,79,50,.10), transparent 60%),
+      var(--bg);
+    overflow:hidden;
+  }
+  .hero-grid{
+    width:100%;
+    display:grid;grid-template-columns:1.15fr .85fr;
+    align-items:center;gap:40px;
+  }
+  .hero-copy .eyebrow{margin-bottom:22px;}
+  .hero h1{
+    font-family:var(--font-display);
+    font-size:clamp(64px,10vw,142px);
+    line-height:.86;
+    letter-spacing:.005em;
+    text-transform:uppercase;
+    color:var(--text);
+  }
+  .hero h1 em{
+    font-style:normal;
+    color:transparent;
+    -webkit-text-stroke:1.5px var(--text);
+  }
+  .hero .role{
+    font-family:var(--font-mono);
+    font-size:clamp(14px,1.6vw,18px);
+    color:var(--text-dim);
+    margin-top:22px;
+    max-width:520px;
+    line-height:1.6;
+  }
+  .hero .role b{color:var(--text);font-weight:600;}
+
+  .hero-cta{display:flex;gap:14px;margin-top:38px;flex-wrap:wrap;}
+  .btn{
+    font-family:var(--font-mono);
+    font-size:12.5px;letter-spacing:.08em;text-transform:uppercase;
+    padding:14px 24px;border-radius:2px;
+    display:inline-flex;align-items:center;gap:10px;
+    transition:transform .2s ease, background .2s ease, border-color .2s ease;
+    border:1px solid var(--line-strong);
+  }
+  .btn.primary{background:var(--accent);color:#0a0c0f;border-color:var(--accent);font-weight:600;}
+  .btn.primary:hover{transform:translateY(-2px);background:#ff6a4f;}
+  .btn.ghost{color:var(--text);}
+  .btn.ghost:hover{border-color:var(--accent-2);color:var(--accent-2);transform:translateY(-2px);}
+
+  .hero-photo{
+    position:relative;
+    display:flex;justify-content:center;align-items:flex-end;
+    height:100%;
+  }
+  .hero-photo .glow{
+    position:absolute;width:340px;height:340px;border-radius:50%;
+    background:radial-gradient(circle, rgba(53,214,176,.28), transparent 70%);
+    filter:blur(10px);
+    top:10%;
+  }
+  .hero-photo img{
+    position:relative;z-index:2;
+    max-height:520px;width:auto;
+    filter:drop-shadow(0 30px 60px rgba(0,0,0,.55));
+  }
+  .frame-tag{
+    position:absolute;bottom:6%;left:50%;transform:translateX(-50%);
+    font-family:var(--font-mono);font-size:11px;color:var(--text-dimmer);
+    background:rgba(0,0,0,.5);border:1px solid var(--line);
+    padding:6px 12px;letter-spacing:.08em;z-index:3;
+    backdrop-filter:blur(4px);
+  }
+
+  /* timeline strip at bottom of hero */
+  .clip-strip{
+    position:absolute;left:0;right:0;bottom:0;
+    height:64px;
+    display:flex;align-items:center;
+    border-top:1px solid var(--line);
+    background:rgba(20,23,28,.55);
+    overflow:hidden;
+  }
+  .clip-track{display:flex;gap:3px;align-items:center;white-space:nowrap;animation:scrollTrack 34s linear infinite;padding:0 12px;}
+  .clip{
+    height:34px;display:flex;align-items:center;padding:0 14px;
+    font-family:var(--font-mono);font-size:11px;letter-spacing:.05em;
+    color:var(--text-dim);
+    background:var(--bg-panel-2);
+    border:1px solid var(--line);
+    border-radius:2px;
+    flex-shrink:0;
+  }
+  .clip.accent{border-color:rgba(255,79,50,.4);color:#ffb6a4;}
+  .clip.accent2{border-color:rgba(53,214,176,.4);color:#a8f0e0;}
+  @keyframes scrollTrack{0%{transform:translateX(0);}100%{transform:translateX(-50%);}}
+
+  section{padding:120px 0;position:relative;}
+  .section-line{border-top:1px solid var(--line);}
+
+  h2.h{
+    font-family:var(--font-display);
+    font-size:clamp(40px,5.4vw,64px);
+    text-transform:uppercase;
+    line-height:.95;
+    letter-spacing:.005em;
+    margin-bottom:20px;
+  }
+
+  /* ---------- SOBRE MI ---------- */
+  .about-grid{display:grid;grid-template-columns:1.3fr .9fr;gap:64px;align-items:start;}
+  .about-text p{
+    font-size:17px;line-height:1.85;color:var(--text-dim);
+    margin-bottom:20px;max-width:56ch;
+  }
+  .about-text p b{color:var(--text);font-weight:600;}
+
+  .fact-panel{
+    background:var(--bg-panel);
+    border:1px solid var(--line);
+    padding:8px;
+  }
+  .fact-row{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:18px 20px;
+    border-bottom:1px solid var(--line);
+    font-family:var(--font-mono);font-size:13px;
+  }
+  .fact-row:last-child{border-bottom:none;}
+  .fact-row span:first-child{color:var(--text-dimmer);letter-spacing:.06em;text-transform:uppercase;font-size:11.5px;}
+  .fact-row span:last-child{color:var(--text);text-align:right;}
+
+  /* ---------- EXPERIENCIA timeline ---------- */
+  .timeline{position:relative;margin-top:56px;padding-left:38px;}
+  .timeline::before{
+    content:"";position:absolute;left:5px;top:6px;bottom:6px;width:1px;
+    background:linear-gradient(var(--accent), var(--accent-2));
+    opacity:.5;
+  }
+  .t-item{position:relative;padding-bottom:52px;}
+  .t-item:last-child{padding-bottom:0;}
+  .t-item::before{
+    content:"";position:absolute;left:-38px;top:4px;
+    width:11px;height:11px;border-radius:50%;
+    background:var(--bg);border:2px solid var(--accent-2);
+  }
+  .t-item.now::before{background:var(--accent-2);box-shadow:0 0 0 4px rgba(53,214,176,.18);}
+  .t-date{font-family:var(--font-mono);font-size:12px;color:var(--accent-2);letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px;}
+  .t-role{font-size:21px;font-weight:700;margin-bottom:8px;}
+  .t-desc{color:var(--text-dim);line-height:1.75;max-width:60ch;font-size:15.5px;}
+
+  /* ---------- EDUCACION card ---------- */
+  .edu-card{
+    display:flex;justify-content:space-between;align-items:center;
+    gap:24px;flex-wrap:wrap;
+    background:var(--bg-panel);border:1px solid var(--line);
+    padding:36px 40px;margin-top:48px;
+  }
+  .edu-card h3{font-size:22px;margin-bottom:8px;}
+  .edu-card p{color:var(--text-dim);font-size:14.5px;line-height:1.6;}
+  .edu-tag{
+    font-family:var(--font-mono);font-size:12px;color:var(--accent);
+    border:1px solid rgba(255,79,50,.35);
+    padding:8px 16px;letter-spacing:.06em;white-space:nowrap;
+  }
+
+  /* ---------- HABILIDADES + SOFTWARE ---------- */
+  .skills-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-top:48px;}
+  .skill-card{
+    background:var(--bg-panel);border:1px solid var(--line);
+    padding:26px 28px;
+  }
+  .skill-card .num{font-family:var(--font-mono);color:var(--text-dimmer);font-size:12px;margin-bottom:14px;display:block;}
+  .skill-card h4{font-size:18px;margin-bottom:10px;}
+  .skill-card p{color:var(--text-dim);font-size:14.5px;line-height:1.65;}
+
+  .software-row{margin-top:64px;}
+  .software-row .eyebrow{margin-bottom:28px;}
+  .soft-list{display:flex;flex-direction:column;gap:0;border-top:1px solid var(--line);}
+  .soft-item{
+    display:grid;grid-template-columns:200px 1fr auto;gap:20px;align-items:center;
+    padding:22px 4px;border-bottom:1px solid var(--line);
+  }
+  .soft-item .name{font-family:var(--font-mono);font-size:14.5px;font-weight:600;letter-spacing:.02em;}
+  .soft-item .sub{color:var(--text-dimmer);font-size:12.5px;font-family:var(--font-mono);}
+  .meter{display:flex;gap:6px;}
+  .meter i{width:26px;height:8px;background:var(--line-strong);border-radius:1px;display:block;}
+  .meter i.on{background:var(--accent-2);}
+
+  /* ---------- PROYECTOS ---------- */
+  .proj-featured{
+    display:grid;grid-template-columns:1fr 1fr;gap:0;
+    border:1px solid var(--line);
+    margin-top:48px;
+  }
+  .proj-featured .ph{position:relative;overflow:hidden;min-height:340px;background:var(--bg-panel-2);}
+  .proj-featured .ph img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0;}
+  .proj-featured .pc{padding:44px 44px;display:flex;flex-direction:column;justify-content:center;background:var(--bg-panel);}
+  .proj-featured .pc .tag{font-family:var(--font-mono);font-size:11.5px;color:var(--accent-2);letter-spacing:.1em;text-transform:uppercase;margin-bottom:16px;}
+  .proj-featured .pc h3{font-family:var(--font-display);font-size:44px;text-transform:uppercase;margin-bottom:16px;letter-spacing:.01em;}
+  .proj-featured .pc p{color:var(--text-dim);line-height:1.75;font-size:15px;margin-bottom:22px;}
+  .stat-row{display:flex;gap:28px;margin-top:6px;}
+  .stat{font-family:var(--font-mono);}
+  .stat b{display:block;font-size:26px;color:var(--text);font-family:var(--font-body);font-weight:800;}
+  .stat span{font-size:11px;color:var(--text-dimmer);letter-spacing:.06em;text-transform:uppercase;}
+
+  .clips-grid{
+    display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-top:18px;
+  }
+  .clip-card{
+    background:var(--bg-panel);border:1px solid var(--line);
+    overflow:hidden;
+    display:flex;flex-direction:column;
+    transition:transform .25s ease, border-color .25s ease;
+  }
+  .clip-card:hover{transform:translateY(-6px);border-color:var(--line-strong);}
+  .clip-card .thumb{
+    position:relative;aspect-ratio:9/13;overflow:hidden;background:#000;
+  }
+  .clip-card .thumb img{width:100%;height:100%;object-fit:cover;transition:transform .5s ease;}
+  .clip-card:hover .thumb img{transform:scale(1.06);}
+  .clip-card .play{
+    position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+    width:44px;height:44px;border-radius:50%;
+    background:rgba(10,12,15,.55);border:1px solid rgba(255,255,255,.4);
+    display:flex;align-items:center;justify-content:center;
+    backdrop-filter:blur(3px);
+    opacity:0;transition:opacity .25s ease;
+  }
+  .clip-card:hover .play{opacity:1;}
+  .clip-card .play svg{margin-left:2px;}
+  .thumb .dur{
+    position:absolute;bottom:8px;right:8px;
+    font-family:var(--font-mono);font-size:10px;color:#fff;
+    background:rgba(0,0,0,.55);padding:2px 6px;letter-spacing:.05em;
+  }
+  .clip-card .meta{padding:16px 16px 18px;}
+  .clip-card .meta .client{font-family:var(--font-mono);font-size:10.5px;color:var(--accent-2);letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;}
+  .clip-card .meta h5{font-size:14.5px;line-height:1.35;font-weight:700;margin-bottom:6px;}
+  .clip-card .meta p{font-size:12.5px;color:var(--text-dimmer);line-height:1.5;}
+
+  .process-shot{
+    margin-top:56px;
+    border:1px solid var(--line);
+    background:var(--bg-panel);
+  }
+  .process-shot .cap{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:18px 24px;border-bottom:1px solid var(--line);
+    font-family:var(--font-mono);font-size:12px;color:var(--text-dim);
+  }
+  .process-shot .cap b{color:var(--text);font-weight:600;}
+  .process-shot img{width:100%;display:block;opacity:.94;}
+
+  /* ---------- CONTACT ---------- */
+  .contact{
+    background:var(--bg-panel);
+    border-top:1px solid var(--line);
+    border-bottom:1px solid var(--line);
+  }
+  .contact-inner{padding:110px 0;text-align:center;}
+  .contact h2{
+    font-family:var(--font-display);
+    font-size:clamp(48px,9vw,110px);
+    text-transform:uppercase;line-height:.9;
+    margin-bottom:26px;
+  }
+  .contact p.sub{color:var(--text-dim);font-size:16px;max-width:52ch;margin:0 auto 40px;line-height:1.7;}
+  .contact-links{display:flex;justify-content:center;gap:16px;flex-wrap:wrap;}
+
+  footer{
+    padding:36px 0;
+    display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;
+    font-family:var(--font-mono);font-size:11.5px;color:var(--text-dimmer);letter-spacing:.04em;
+  }
+  footer .brand{opacity:.8;}
+  footer .brand img{height:16px;}
+  .footer-inner{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;}
+  .project-featured-secondary{margin-top:18px;}
+  .project-featured-secondary .pc{order:2;}
+  .project-featured-secondary .ph{order:1;}
+  .project-featured-secondary .ph img{object-position:top;}
+  .clip-placeholder{background:linear-gradient(160deg,#1b1f26,#0a0c0f);display:flex;align-items:center;justify-content:center;}
+  .contact .eyebrow{justify-content:center;}
+  .contact-inner{padding-left:32px;padding-right:32px;}
+
+  /* reveal on scroll */
+  .reveal{opacity:0;transform:translateY(22px);transition:opacity .7s ease, transform .7s ease;}
+  .reveal.in{opacity:1;transform:translateY(0);}
+
+  @media (max-width: 920px){
+    nav.links{display:none;}
+    .menu-toggle{
+      display:inline-flex;align-items:center;justify-content:center;
+      width:40px;height:40px;padding:0;color:var(--text);
+      background:transparent;border:1px solid var(--line-strong);cursor:pointer;
+    }
+    .menu-toggle span,.menu-toggle span::before,.menu-toggle span::after{
+      display:block;width:16px;height:1px;background:currentColor;content:"";transition:transform .2s ease;
+    }
+    .menu-toggle span{position:relative;}
+    .menu-toggle span::before{position:absolute;top:-5px;}
+    .menu-toggle span::after{position:absolute;top:5px;}
+    .menu-toggle[aria-expanded="true"] span{background:transparent;}
+    .menu-toggle[aria-expanded="true"] span::before{transform:translateY(5px) rotate(45deg);}
+    .menu-toggle[aria-expanded="true"] span::after{transform:translateY(-5px) rotate(-45deg);}
+    .mobile-menu{
+      display:none;position:absolute;top:64px;left:0;right:0;
+      padding:12px 20px 20px;background:rgba(10,12,15,.97);border-bottom:1px solid var(--line);
+    }
+    .mobile-menu.is-open{display:grid;gap:2px;}
+    .mobile-menu a{padding:14px 0;border-bottom:1px solid var(--line);font-family:var(--font-mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);}
+    .mobile-menu a:last-child{border-bottom:0;}
+    .mobile-menu a:hover{color:var(--accent-2);}
+    .tc-readout{margin-left:auto;}
+    .hero-grid{grid-template-columns:1fr;}
+    .hero-photo{order:-1;margin-bottom:10px;}
+    .hero-photo img{max-height:320px;}
+    .about-grid{grid-template-columns:1fr;gap:40px;}
+    .skills-grid{grid-template-columns:1fr;}
+    .proj-featured{grid-template-columns:1fr;}
+    .proj-featured .ph{min-height:260px;}
+    .clips-grid{grid-template-columns:repeat(2,1fr);}
+    .soft-item{grid-template-columns:1fr;gap:10px;}
+    .edu-card{flex-direction:column;align-items:flex-start;}
+    section{padding:80px 0;}
+  }
+  @media (max-width: 560px){
+    .clips-grid{grid-template-columns:1fr 1fr;}
+    .wrap{padding:0 20px;}
+    .nav-inner{padding:0 20px;}
+    .brand span{display:none;}
+    .tc-readout{font-size:10px;}
+    .contact-inner{padding-left:20px;padding-right:20px;}
+    .footer-inner{align-items:flex-start;flex-direction:column;}
+    .process-shot .cap{align-items:flex-start;flex-direction:column;gap:8px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="grain"></div>
+<a class="skip-link" href="#contenido">Saltar al contenido</a>
+
+<header class="top">
+  <div class="nav-inner">
+    <div class="brand">
+      <img src="assets/logo-z.png" alt="Zeoxtar logo">
+      <span>ZEOXTAR</span>
+    </div>
+    <nav class="links" aria-label="Navegación principal">
+      <a href="#sobre-mi">Sobre mí</a>
+      <a href="#experiencia">Experiencia</a>
+      <a href="#habilidades">Habilidades</a>
+      <a href="#proyectos">Proyectos</a>
+      <a href="#contacto">Contacto</a>
+    </nav>
+    <button class="menu-toggle" type="button" aria-label="Abrir menú" aria-expanded="false" aria-controls="mobile-menu">
+      <span></span>
+    </button>
+    <div class="tc-readout"><span class="dot"></span><span id="clock">00:00:00:00</span></div>
+  </div>
+  <nav class="mobile-menu" id="mobile-menu" aria-label="Navegación móvil">
+    <a href="#sobre-mi">Sobre mí</a>
+    <a href="#experiencia">Experiencia</a>
+    <a href="#habilidades">Habilidades</a>
+    <a href="#proyectos">Proyectos</a>
+    <a href="#contacto">Contacto</a>
+  </nav>
+</header>
+<div class="ruler"><div class="ruler-fill" id="rulerFill"></div></div>
+
+<main id="contenido">
+<!-- HERO -->
+<section class="hero" aria-labelledby="hero-title">
+  <div class="wrap hero-grid">
+    <div class="hero-copy">
+      <div class="eyebrow">Portfolio ZEO — Santo Domingo, RD</div>
+      <h1 id="hero-title">Ariel<br>"<em>Zeoxtar</em>"</h1>
+      <p class="role">
+        Editor de video, <b>filmmaker</b> y colorista de 18 años. Transformo grabaciones crudas
+        en <b>shorts, cortometrajes y videoclips</b> con identidad propia — desde multicámara
+        tipo documental hasta motion graphics básico.
+      </p>
+      <div class="hero-cta">
+        <a href="#proyectos" class="btn primary">Ver proyectos</a>
+        <a href="#contacto" class="btn ghost">Contáctame</a>
+      </div>
+    </div>
+    <div class="hero-photo">
+      <div class="glow"></div>
+      <img src="assets/ariel.png" alt="Ariel, Zeoxtar">
+      <div class="frame-tag">CAM 01 · REYARGA_2.0</div>
+    </div>
+  </div>
+
+  <div class="clip-strip">
+    <div class="clip-track" id="clipTrack">
+      <!-- duplicated in JS for seamless loop -->
+    </div>
+  </div>
+</section>
+
+<!-- SOBRE MI -->
+<section id="sobre-mi" class="section-line">
+  <div class="wrap about-grid">
+    <div class="about-text reveal">
+      <div class="eyebrow">00:01 — Sobre mí</div>
+      <h2 class="h">Amante del<br>arte y el detalle.</h2>
+      <p>Hola, soy <b>Ariel</b>, tengo <b>18 años</b> y soy una persona amante del arte, el diseño y la creatividad.
+      Me gusta transformar ideas en algo visual, experimentar con estilos únicos y crear cosas que muestren una
+      identidad marcada.</p>
+      <p>Mi principal enfoque está en el <b>contenido en formato de shorts y videos de YouTube</b>, aunque también
+      manejo lo básico de motion graphics y puedo adaptarme a nuevas necesidades. Siempre he sido versátil:
+      capaz de trabajar solo o en equipo, sin limitarme a un solo tipo de formato.</p>
+    </div>
+    <div class="fact-panel reveal">
+      <div class="fact-row"><span>Nombre</span><span>Ariel Garcia Reynoso</span></div>
+      <div class="fact-row"><span>Edad</span><span>18 años</span></div>
+      <div class="fact-row"><span>Ubicación</span><span>Santo Domingo, RD</span></div>
+      <div class="fact-row"><span>Rol</span><span>Editor / Filmmaker</span></div>
+      <div class="fact-row"><span>Instagram</span><span>@zeo.xtarr</span></div>
+      <div class="fact-row"><span>Email</span><span>zeoxtar@gmail.com</span></div>
+      <div class="fact-row"><span>Teléfono</span><span>+1 (809) 782-8128</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- EXPERIENCIA -->
+<section id="experiencia" class="section-line">
+  <div class="wrap">
+    <div class="eyebrow reveal">00:02 — Experiencia</div>
+    <h2 class="h reveal">Lo que he editado<br>hasta ahora.</h2>
+
+    <div class="timeline">
+      <div class="t-item now reveal">
+        <div class="t-date">2026 — Ahora</div>
+        <div class="t-role">Editor de contenido · Frooby</div>
+        <div class="t-desc">Editor y optimizador de clips para redes sociales del youtuber dominicano
+        Frooby (+400k seguidores). Trabajo promociones y videos con funciones de multicámara tipo
+        documental o entrevista.</div>
+      </div>
+      <div class="t-item reveal">
+        <div class="t-date">2025 — Ahora</div>
+        <div class="t-role">Editor y camarógrafo · Freelancer</div>
+        <div class="t-desc">Grabación y edición para clientes independientes: promociones, contenido
+        de marca y cobertura de eventos, con colorización y subtítulos para redes sociales.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- EDUCACION -->
+<section class="section-line" style="padding-top:0;">
+  <div class="wrap">
+    <div class="eyebrow reveal">00:03 — Educación</div>
+    <div class="edu-card reveal">
+      <div>
+        <h3>Soporte de Redes y Sistemas Informáticos</h3>
+        <p>Instituto Técnico Salesiano — ITESA</p>
+      </div>
+      <div class="edu-tag">2023 — 2026</div>
+    </div>
+  </div>
+</section>
+
+<!-- HABILIDADES -->
+<section id="habilidades" class="section-line">
+  <div class="wrap">
+    <div class="eyebrow reveal">00:04 — Habilidades</div>
+    <h2 class="h reveal">De la grabación<br>al render final.</h2>
+
+    <div class="skills-grid">
+      <div class="skill-card reveal">
+        <span class="num">01</span>
+        <h4>Edición &amp; filmmaking</h4>
+        <p>Edición de video, fotografía y filmmaking para contenido de redes sociales, cortometrajes
+        y videoclips.</p>
+      </div>
+      <div class="skill-card reveal">
+        <span class="num">02</span>
+        <h4>Multicámara &amp; documental</h4>
+        <p>Sincronización y edición multicámara para entrevistas, liveshows y formatos tipo documental.</p>
+      </div>
+      <div class="skill-card reveal">
+        <span class="num">03</span>
+        <h4>Colorización</h4>
+        <p>Corrección y colorización de video y fotografía para darle una identidad visual consistente
+        a cada pieza.</p>
+      </div>
+      <div class="skill-card reveal">
+        <span class="num">04</span>
+        <h4>Audio: máster &amp; ecualización</h4>
+        <p>Limpieza, máster y ecualización de audio para que cada clip suene tan bien como se ve.</p>
+      </div>
+    </div>
+
+    <div class="software-row reveal">
+      <div class="eyebrow">Softwares</div>
+      <div class="soft-list">
+        <div class="soft-item">
+          <div><div class="name">Premiere Pro</div><div class="sub">Edición principal</div></div>
+          <div class="sub">Efectos, manejo de SFX y Camaras</div>
+          <div class="meter"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></div>
+        </div>
+        <div class="soft-item">
+          <div><div class="name">DaVinci Resolve</div><div class="sub">Color &amp; grading</div></div>
+          <div class="sub">Timelines, multicámara, colorización y corrección de color</div>
+          <div class="meter"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></div>
+        </div>
+        <div class="soft-item">
+          <div><div class="name">Adobe Audition</div><div class="sub">Post-producción de audio</div></div>
+          <div class="sub">Máster y ecualización</div>
+          <div class="meter"><i class="on"></i><i class="on"></i><i class="on"></i><i></i></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PROYECTOS -->
+<section id="proyectos" class="section-line">
+  <div class="wrap">
+    <div class="eyebrow reveal">00:05 — Proyectos</div>
+    <h2 class="h reveal">Selección de trabajo.</h2>
+
+    <!-- Featured: Frooby -->
+    <div class="proj-featured reveal">
+      <div class="ph"><img src="assets/Frooby152.jpg" alt="Frooby, youtuber dominicano"></div>
+      <div class="pc">
+        <div class="tag">Cliente actual</div>
+        <h3>Frooby</h3>
+        <p>Una muestra de cómo la creatividad y las ideas en conjunto pueden captar a una gran audiencia.
+        Youtuber dominicano con más de 400k seguidores entre todas sus redes sociales.</p>
+        <div class="stat-row">
+          <div class="stat"><b>400K+</b><span>Seguidores</span></div>
+          <div class="stat"><b>2026</b><span>Colaborando desde</span></div>
+          <div class="stat"><b>Multicam</b><span>Formato</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Featured: Reyarga -->
+    <div class="proj-featured project-featured-secondary reveal">
+      <div class="pc">
+        <div class="tag">Proyecto personal</div>
+        <h3>Reyarga</h3>
+        <p>Este proyecto representa una parte de mi proceso creativo, donde combiné edición, diseño
+        y narrativa visual para transformar una idea en una pieza con identidad propia.</p>
+        <div class="stat-row">
+          <div class="stat"><b>Solo</b><span>Rol</span></div>
+          <div class="stat"><b>Edición</b><span>+ diseño + narrativa</span></div>
+        </div>
+      </div>
+      <div class="ph"><img src="assets/ariel.png" alt="Reyarga — proyecto personal"></div>
+    </div>
+
+    <!-- Clip grid -->
+    <div class="clips-grid">
+      <a class="clip-card reveal" href="https://www.instagram.com/p/DWWzdZAgCoW/?hl=es" target="_blank" rel="noopener">
+        <div class="thumb">
+          <img src="assets/frooby-short1.jpg" alt="Muchas gracias Sr. Sonrisas — short Frooby">
+          <div class="play"><svg width="16" height="16" viewBox="0 0 16 16" fill="#fff"><polygon points="3,2 14,8 3,14"/></svg></div>
+          <div class="dur">SHORT</div>
+        </div>
+        <div class="meta">
+          <div class="client">Frooby</div>
+          <h5>Muchas gracias Sr. Sonrisas</h5>
+          <p>Multicámara, selección de clip, colorización y subtítulos.</p>
+        </div>
+      </a>
+
+      <a class="clip-card reveal" href="https://www.instagram.com/reel/DaTIbDHBqGs/" target="_blank" rel="noopener">
+        <div class="thumb">
+          <img src="assets/frooby-kaiyi.jpg" alt="Promoción KAIYI — short Frooby">
+          <div class="play"><svg width="16" height="16" viewBox="0 0 16 16" fill="#fff"><polygon points="3,2 14,8 3,14"/></svg></div>
+          <div class="dur">SHORT</div>
+        </div>
+        <div class="meta">
+          <div class="client">Frooby</div>
+          <h5>Promoción KAIYI</h5>
+          <p>Edición sobre grabación del cliente, colorización y subtítulos.</p>
+        </div>
+      </a>
+
+      <a class="clip-card reveal" href="https://www.instagram.com/p/DaCExM0NTL_/" target="_blank" rel="noopener">
+        <div class="thumb">
+          <img src="assets/casita-ely.jpg" alt="Promoción de comida — La Casita de Ely">
+          <div class="play"><svg width="16" height="16" viewBox="0 0 16 16" fill="#fff"><polygon points="3,2 14,8 3,14"/></svg></div>
+          <div class="dur">SHORT</div>
+        </div>
+        <div class="meta">
+          <div class="client">La Casita de Ely</div>
+          <h5>Promoción de comida</h5>
+          <p>Filmmaking, edición y colorización para redes sociales.</p>
+        </div>
+      </a>
+      <a class="clip-card reveal" href="https://www.youtube.com/watch?v=cfx-TVWEksE&t=11s " target="_blank" rel="noopener">
+        <div class="thumb">
+          <img src="assets/reyarga2.jpg" alt="COAV REYARGA">
+          <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="var(--text-dimmer)" stroke-width="1.2"><circle cx="12" cy="12" r="9"/><polygon points="10,8 16,12 10,16" fill="var(--text-dimmer)" stroke="none"/></svg>
+          <div class="play"><svg width="16" height="16" viewBox="0 0 16 16" fill="#fff"><polygon points="3,2 14,8 3,14"/></svg></div>
+          <div class="dur">VIDEO</div>
+        </div>
+        <div class="meta">
+          <div class="client">Contenido propio</div>
+          <h5>Me caí de una bici | Cómo olvidar aquella vez</h5>
+          <p>Guión, edición y humor visual con estilo propio.</p>
+        </div>
+      </a>
+    </div>
+
+    <!-- process shot -->
+    <div class="process-shot reveal">
+      <div class="cap"><span>Behind the edit — <b>Grabación de liveshow, Frooby</b></span><span>DaVinci Resolve · Timeline</span></div>
+      <img src="assets/davinci-screenshot.jpg" alt="Timeline de edición multicámara en DaVinci Resolve">
+    </div>
+  </div>
+</section>
+
+<!-- CONTACTO -->
+<section id="contacto" class="contact">
+  <div class="wrap contact-inner">
+    <div class="eyebrow reveal">Fin del reel — Contacto</div>
+    <h2 class="reveal">Hablemos de<br>tu próximo video.</h2>
+    <p class="sub reveal">Entre muchos proyectos más — si tienes una idea, un evento o una marca que
+    contar, escríbeme y le damos juntos.</p>
+    <div class="contact-links reveal">
+      <a class="btn primary" href="mailto:zeoxtar@gmail.com">zeoxtar@gmail.com</a>
+      <a class="btn ghost" href="tel:+18097828128">+1 (809) 782-8128</a>
+      <a class="btn ghost" href="https://instagram.com/zeo.xtarr" target="_blank" rel="noopener">@zeo.xtarr</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap footer-inner">
+    <div class="brand">
+      <img src="assets/logo-z.png" alt="Zeoxtar">
+      <span>© ZEOXTAR — Santo Domingo, RD</span>
+    </div>
+    <span>Trabajo original.</span>
+  </div>
+</footer>
+</main>
+
+<script>
+  // live "timecode" clock in nav
+  function pad(n){return n.toString().padStart(2,'0');}
+  function tick(){
+    const d = new Date();
+    document.getElementById('clock').textContent =
+      pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds())+':'+pad(Math.floor(d.getMilliseconds()/40));
+  }
+  setInterval(tick, 40); tick();
+
+  // scroll progress -> ruler fill
+  const rulerFill = document.getElementById('rulerFill');
+  function onScroll(){
+    const h = document.documentElement;
+    const scrolled = (h.scrollTop) / (h.scrollHeight - h.clientHeight) * 100;
+    rulerFill.style.width = scrolled + '%';
+  }
+  document.addEventListener('scroll', onScroll);
+  onScroll();
+
+  // reveal on scroll
+  const io = new IntersectionObserver((entries)=>{
+    entries.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target);} });
+  }, {threshold:.12});
+  document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+
+  // clip strip content (duplicated for seamless marquee)
+  const clips = [
+    {t:'REYARGA_2.0.mov', c:''},
+    {t:'FROOBY_MULTICAM', c:'accent'},
+    {t:'KAIYI_PROMO', c:''},
+    {t:'CASITA_DE_ELY', c:'accent2'},
+    {t:'BICI_SHORT', c:''},
+    {t:'COLOR_GRADE_v3', c:'accent'},
+    {t:'AUDIO_MASTER', c:''},
+    {t:'LIVESHOW_EDIT', c:'accent2'},
+  ];
+  const track = document.getElementById('clipTrack');
+  function renderClips(){
+    let html = '';
+    for(let r=0;r<2;r++){
+      clips.forEach(cl=>{
+        html += `<div class="clip ${cl.c}">${cl.t}</div>`;
+      });
+    }
+    track.innerHTML = html;
+  }
+  renderClips();
+
+  // mobile navigation
+  const menuToggle = document.querySelector('.menu-toggle');
+  const mobileMenu = document.getElementById('mobile-menu');
+  menuToggle.addEventListener('click', ()=>{
+    const isOpen = menuToggle.getAttribute('aria-expanded') === 'true';
+    menuToggle.setAttribute('aria-expanded', String(!isOpen));
+    menuToggle.setAttribute('aria-label', isOpen ? 'Abrir menú' : 'Cerrar menú');
+    mobileMenu.classList.toggle('is-open', !isOpen);
+  });
+  mobileMenu.querySelectorAll('a').forEach(link=>link.addEventListener('click', ()=>{
+    menuToggle.setAttribute('aria-expanded', 'false');
+    menuToggle.setAttribute('aria-label', 'Abrir menú');
+    mobileMenu.classList.remove('is-open');
+  }));
+</script>
+
+</body>
+</html>
